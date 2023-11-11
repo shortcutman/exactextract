@@ -56,7 +56,12 @@ const RasterStats<double>&
 StatsRegistry::stats(const std::string& feature, const Operation& op) const
 {
     // TODO come up with a better storage method.
-    return m_feature_stats.at(feature).at(op.key());
+    auto stats = m_feature_stats.find(feature);
+    if (stats != m_feature_stats.end()) {
+        return stats->second.at(op.key());
+    } else {
+        return RasterStats<double>();
+    }
 }
 
 }
