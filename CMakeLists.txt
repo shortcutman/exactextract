@@ -283,6 +283,9 @@ target_link_libraries(
         ${GEOS_LIBRARY}
 )
 
+find_package(TBB REQUIRED)
+target_link_libraries(${LIB_NAME} PUBLIC TBB::tbb)
+
 set_target_properties(${LIB_NAME} PROPERTIES OUTPUT_NAME ${LIB_NAME})
 
 if(BUILD_DOC)
