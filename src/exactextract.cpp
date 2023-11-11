@@ -29,6 +29,7 @@
 #include "processor.h"
 #include "coverage_processor.h"
 #include "feature_sequential_processor.h"
+#include "parallel_processor.h"
 #include "raster_sequential_processor.h"
 #include "utils.h"
 #include "version.h"
@@ -135,6 +136,8 @@ int main(int argc, char** argv) {
             proc = std::make_unique<exactextract::FeatureSequentialProcessor>(shp, *writer, std::move(operations));
         } else if (strategy == "raster-sequential") {
             proc = std::make_unique<exactextract::RasterSequentialProcessor>(shp, *writer, std::move(operations));
+        } else if (strategy == "parallel") {
+            proc = std::make_unique<exactextract::ParallelProcessor>(shp, *writer, std::move(operations));
         } else {
             throw std::runtime_error("Unknown processing strategy: " + strategy);
         }
