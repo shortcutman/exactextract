@@ -218,8 +218,8 @@ set(PROJECT_SOURCES
         src/grid.cpp
         src/matrix.h
         src/map_feature.h
-        src/parallel_processor.cpp
-        src/parallel_processor.h
+        src/parallel_feature_processor.cpp
+        src/parallel_feature_processor.h
         src/perimeter_distance.cpp
         src/perimeter_distance.h
         src/processor.h
