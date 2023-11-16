@@ -64,7 +64,7 @@ namespace exactextract {
             });
         }
 
-    private:
+    public:
 
         std::unordered_map<std::string,
         std::unordered_map<std::string, RasterStats <double>>> m_feature_stats{};

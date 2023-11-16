@@ -17,6 +17,7 @@
 #include <string>
 #include <stdexcept>
 #include <vector>
+#include <chrono>
 
 #include "CLI11.hpp"
 
@@ -30,6 +31,7 @@
 #include "coverage_processor.h"
 #include "feature_sequential_processor.h"
 #include "parallel_feature_processor.h"
+#include "parallel_raster_processor.h"
 #include "raster_sequential_processor.h"
 #include "utils.h"
 #include "version.h"
@@ -136,8 +138,10 @@ int main(int argc, char** argv) {
             proc = std::make_unique<exactextract::FeatureSequentialProcessor>(shp, *writer, std::move(operations));
         } else if (strategy == "raster-sequential") {
             proc = std::make_unique<exactextract::RasterSequentialProcessor>(shp, *writer, std::move(operations));
-        } else if (strategy == "parallel") {
+        } else if (strategy == "feature-parallel") {
             proc = std::make_unique<exactextract::ParallelFeatureProcessor>(shp, *writer, std::move(operations));
+        } else if (strategy == "raster-parallel") {
+            proc = std::make_unique<exactextract::ParallelRasterProcessor>(shp, *writer, std::move(operations));
         } else {
             throw std::runtime_error("Unknown processing strategy: " + strategy);
         }
@@ -149,8 +153,14 @@ int main(int argc, char** argv) {
         proc->set_max_cells_in_memory(max_cells_in_memory);
         proc->show_progress(progress);
 
+        auto start = std::chrono::steady_clock::now();
+
         proc->process();
         writer->finish();
+
+        auto end = std::chrono::steady_clock::now();
+
+        std::cout << "\nTime elapsed: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms" << std::endl;
 
         return 0;
     } catch (const std::exception & e) {

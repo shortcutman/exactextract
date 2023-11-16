@@ -220,6 +220,8 @@ set(PROJECT_SOURCES
         src/map_feature.h
         src/parallel_feature_processor.cpp
         src/parallel_feature_processor.h
+        src/parallel_raster_processor.cpp
+        src/parallel_raster_processor.h
         src/perimeter_distance.cpp
         src/perimeter_distance.h
         src/processor.h
