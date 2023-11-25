@@ -7,3 +7,6 @@ cmake-build-*
 .vscode
 .idea/
 callgrind.out.*
+.cache
+.DS_Store
+build/
