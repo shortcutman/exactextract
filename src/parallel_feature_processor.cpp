@@ -54,15 +54,15 @@ namespace exactextract {
                 auto batch = std::make_shared<GeometryBatch>();
                 auto& threadGeosContext = geos_context.local();
 
-                while (shp.next()) {
-                    std::string name = shp.feature_field(shp.id_field());
-                    auto geom = geos_ptr(threadGeosContext, shp.feature_geometry(threadGeosContext));
-                    batch->push_back(std::move(std::make_pair(name, std::move(geom))));
+                // while (shp.next()) {
+                //     std::string name = shp.feature_field(shp.id_field());
+                //     auto geom = geos_ptr(threadGeosContext, shp.feature_geometry(threadGeosContext));
+                //     batch->push_back(std::move(std::make_pair(name, std::move(geom))));
 
-                    if (batch->size() == BatchSize) {
-                        return batch;
-                    }
-                }
+                //     if (batch->size() == BatchSize) {
+                //         return batch;
+                //     }
+                // }
 
                 fc.stop();
                 return batch;
@@ -136,11 +136,11 @@ namespace exactextract {
             [&output = m_output] (const BatchAndResults& results) {
                 //output
                 //m_output should only be accessed here
-                output.set_registry(results.second.get());
+                // output.set_registry(results.second.get());
 
-                for (auto& feature : *(results.first)) {
-                    output.write(feature.first);
-                }
+                // for (auto& feature : *(results.first)) {
+                //     output.write(feature.first);
+                // }
 
                 std::cout << "Wrote " << results.first->size() << " features." << std::endl;
             }));
