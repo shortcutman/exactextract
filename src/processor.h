@@ -83,7 +83,7 @@ namespace exactextract {
 
         void progress() const {
             if (m_show_progress)
-                std::cout << "." << std::flush;
+                std::cout << "!" << std::flush;
         }
 
         StatsRegistry m_reg;
