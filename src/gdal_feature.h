@@ -18,6 +18,7 @@
 
 #include "ogr_api.h"
 
+#include <cstdint>
 #include <geos_c.h>
 #include <stdexcept>
 
@@ -81,6 +82,8 @@ class GDALFeature : public Feature
             return typeid(std::string);
         } else if (type == OFTReal) {
             return typeid(double);
+        } else if (type == OFTInteger) {
+            return typeid(int32_t);
         } else {
             throw std::runtime_error("Unhandled type.");
         }
@@ -139,6 +142,10 @@ class GDALFeature : public Feature
 
     float get_float(const std::string& name) const override {
         return static_cast<float>(OGR_F_GetFieldAsDouble(m_feature, field_index(name)));
+    }
+
+    int32_t get_int32(const std::string& name) const override {
+        return static_cast<int32_t>(OGR_F_GetFieldAsInteger(m_feature, field_index(name)));
     }
 
     const GEOSGeometry* geometry() const override {

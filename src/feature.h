@@ -11,6 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstdint>
 #include <string>
 #include <typeinfo>
 
@@ -37,6 +38,7 @@ class Feature
     virtual std::string get_string(const std::string& name) const = 0;
     virtual double get_double(const std::string& name) const = 0;
     virtual float get_float(const std::string& name) const = 0;
+    virtual int32_t get_int32(const std::string& name) const = 0;
 
     virtual void copy_to(Feature& dst) const = 0;
 

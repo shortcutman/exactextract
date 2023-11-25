@@ -17,6 +17,8 @@
 #include "geos_utils.h"
 
 #include <any>
+#include <cstdint>
+#include <string>
 #include <unordered_map>
 
 namespace exactextract {
@@ -73,6 +75,8 @@ class MapFeature : public Feature
             m_map[name] = f.get_double(name);
         } else if (type == typeid(float)) {
             m_map[name] = f.get_float(name);
+        } else if (type == typeid(int32_t)) {
+            m_map[name] = f.get_int32(name);
         } else {
             throw std::runtime_error("Unhandled type: " + std::string(type.name()));
         }
@@ -103,7 +107,20 @@ class MapFeature : public Feature
     }
 
     std::string get_string(const std::string& name) const override {
-        return get<std::string>(name);
+        auto& val = m_map.at(name);
+        auto& type = val.type();
+
+        if (type == typeid(std::string)) {
+            return std::any_cast<std::string>(val);
+        } else if (type == typeid(double)) {
+            return std::to_string(std::any_cast<double>(val));
+        } else if (type == typeid(float)) {
+            return std::to_string(std::any_cast<float>(val));
+        } else if (type == typeid(int32_t)) {
+            return std::to_string(std::any_cast<int32_t>(val));
+        } else {
+            throw std::runtime_error("Unhandled type: " + std::string(type.name()));
+        }
     }
 
     double get_double(const std::string& name) const override {
@@ -112,6 +129,10 @@ class MapFeature : public Feature
 
     float get_float(const std::string& name) const override {
         return get<float>(name);
+    }
+
+    int32_t get_int32(const std::string& name) const override {
+        return get<int32_t>(name);
     }
 
   private:
