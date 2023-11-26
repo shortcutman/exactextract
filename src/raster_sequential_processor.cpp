@@ -54,6 +54,7 @@ namespace exactextract {
         for (const auto &subgrid : subdivide(grid, m_max_cells_in_memory)) {
             std::vector<const Feature *> hits;
 
+            progress(subgrid.extent());
             auto query_rect = geos_make_box_polygon(m_geos_context, subgrid.extent());
 
             GEOSSTRtree_query_r(m_geos_context, m_feature_tree.get(), query_rect.get(), [](void *hit, void *userdata) {
@@ -116,8 +117,6 @@ namespace exactextract {
                     progress();
                 }
             }
-
-            progress(subgrid.extent());
         }
 
         for (const auto& f_in : m_features) {
