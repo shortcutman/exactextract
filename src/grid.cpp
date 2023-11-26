@@ -77,7 +77,7 @@ namespace exactextract {
         }
 
         size_t cols_per_block = std::min(max_size, grid.cols());
-        size_t rows_per_block = max_size / cols_per_block;
+        size_t rows_per_block = 1024; //temp
 
         size_t col_blocks = (grid.cols() - 1) / cols_per_block + 1;
         size_t row_blocks = (grid.rows() - 1) / rows_per_block + 1;

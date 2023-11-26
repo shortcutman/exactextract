@@ -11,6 +11,7 @@
 #include "operation.h"
 #include "raster_source.h"
 
+#include <cassert>
 #include <map>
 #include <memory>
 #include <set>
@@ -59,9 +60,12 @@ namespace exactextract {
     }
 
     void ParallelRasterProcessor::populate_index() {
-        for (const auto& f : m_features) {
-            // TODO compute envelope of dataset, and crop raster by that extent before processing?
-            GEOSSTRtree_insert_r(m_geos_context, m_feature_tree.get(), f.geometry(), (void *) &f);
+        assert(m_feature_tree != nullptr);
+
+        for (const auto &f : m_features) {
+            // TODO compute envelope of dataset, and crop raster by that extent
+            // before processing?
+            GEOSSTRtree_insert_r(m_geos_context, m_feature_tree.get(), f.geometry(), (void *)&f);
         }
     }
 
@@ -75,7 +79,7 @@ namespace exactextract {
 
         bool store_values = StatsRegistry::requires_stored_values(m_operations);
         auto operationsGridExtent = common_grid(m_operations.begin(), m_operations.end());
-        auto subdividedGrid = subdivide(operationsGridExtent, 10000);
+        auto subdividedGrid = subdivide(operationsGridExtent, 4096);
 
         oneapi::tbb::enumerable_thread_specific<GEOSContextHandle_t> geos_context([] () -> GEOSContextHandle_t {
             return initGEOS_r(errorHandlerParallel, errorHandlerParallel);
@@ -91,9 +95,27 @@ namespace exactextract {
                     return std::shared_ptr<RasterBlock>();
                 }
 
-                auto subgrid = *subdividedGrid.begin();
+                auto& threadGeosContext = geos_context.local();
+                auto subgridIt = subdividedGrid.begin();
+                auto rasterBlock = std::make_shared<RasterBlock>();
+                
+                while (subgridIt != subdividedGrid.end() && rasterBlock->_hits.empty()) {
+                    auto subgrid = *subgridIt++;
+                    rasterBlock->_grid = subgrid;
+                    
+                    auto query_rect = geos_make_box_polygon(threadGeosContext, rasterBlock->_grid.extent());
+                    GEOSSTRtree_query_r(threadGeosContext,
+                        m_feature_tree.get(),
+                        query_rect.get(),
+                        [](void *hit, void *userdata) {
+                            auto feature = static_cast<const Feature *>(hit);
+                            auto vec = static_cast<std::vector<const Feature *> *>(userdata);
 
-                auto rasterBlock = std::make_shared<RasterBlock>(subgrid);
+                            vec->push_back(feature);
+                        }, &rasterBlock->_hits);
+                }
+
+                subdividedGrid.erase(subdividedGrid.begin(), subgridIt);
 
                 std::set<std::pair<RasterSource*, RasterSource*>> processed;
                 for (const auto &op : m_operations) {
@@ -104,44 +126,29 @@ namespace exactextract {
                         processed.insert(key);
                     }
 
-                    if (!op->values->grid().extent().contains(subgrid.extent())) {
+                    if (!op->values->grid().extent().contains(rasterBlock->_grid.extent())) {
                         continue;
                     }
 
-                    if (op->weighted() && !op->weights->grid().extent().contains(subgrid.extent())) {
+                    if (op->weighted() && !op->weights->grid().extent().contains(rasterBlock->_grid.extent())) {
                         continue;
                     }
 
                     auto values = rasterBlock->raster_values[op->values].get();
                     if (values == nullptr) {
-                        rasterBlock->raster_values[op->values] = op->values->read_box(subgrid.extent().intersection(op->values->grid().extent()));
+                        rasterBlock->raster_values[op->values] = op->values->read_box(rasterBlock->_grid.extent().intersection(op->values->grid().extent()));
                         values = rasterBlock->raster_values[op->values].get();
                     }
-                }                
+                }
 
-                subdividedGrid.erase(subdividedGrid.begin());
                 return rasterBlock;
             }) &
             //process batch
             oneapi::tbb::make_filter<std::shared_ptr<RasterBlock>, std::shared_ptr<RasterBlock>>(oneapi::tbb::filter_mode::parallel,
             [&geos_context, &featureTree = m_feature_tree, this] (std::shared_ptr<RasterBlock> block) -> std::shared_ptr<RasterBlock> {
-                //intersect with raster
-                //return m_reg + name
                 auto& threadGeosContext = geos_context.local();
                 // bool store_values = StatsRegistry::requires_stored_values(ops);
                 bool store_values = true;
-
-                auto query_rect = geos_make_box_polygon(threadGeosContext, block->_grid.extent());
-
-                GEOSSTRtree_query_r(threadGeosContext,
-                    featureTree.get(),
-                    query_rect.get(),
-                    [](void *hit, void *userdata) {
-                        auto feature = static_cast<const Feature *>(hit);
-                        auto vec = static_cast<std::vector<const Feature *> *>(userdata);
-
-                        vec->push_back(feature);
-                    }, &block->_hits);
                 
                 for (const auto& f : block->_hits) {
                     std::string fid = f->get_string(m_shp.id_field());
