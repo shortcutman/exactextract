@@ -96,9 +96,6 @@ namespace exactextract {
         });
 
         std::cout << "Processing inputs with ouputs as..." << std::endl;
-        std::cout << "Intersect and read operation: ." << std::endl;
-        std::cout << "Raster calculations: !" << std::endl;
-        std::cout << "Stats Registry merge: &" << std::endl;
 
         oneapi::tbb::parallel_pipeline(6,
             oneapi::tbb::make_filter<void, std::shared_ptr<RasterBlock>>(oneapi::tbb::filter_mode::serial_in_order,
