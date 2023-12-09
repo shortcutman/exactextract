@@ -98,18 +98,18 @@ namespace exactextract {
         std::cout << "Processing inputs with ouputs as..." << std::endl;
 
         oneapi::tbb::parallel_pipeline(6,
-            oneapi::tbb::make_filter<void, std::shared_ptr<RasterBlock>>(oneapi::tbb::filter_mode::serial_in_order,
+            oneapi::tbb::make_filter<void, std::unique_ptr<RasterBlock>>(oneapi::tbb::filter_mode::serial_in_order,
             //read features and setup batch for processing
-            [&operationsGridExtent, &subdividedGrid, &geos_context, this] (oneapi::tbb::flow_control& fc) -> std::shared_ptr<RasterBlock> {
+            [&operationsGridExtent, &subdividedGrid, &geos_context, this] (oneapi::tbb::flow_control& fc) -> std::unique_ptr<RasterBlock> {
                 //iterate through subdivisions and do file IO
                 if (subdividedGrid.begin() == subdividedGrid.end()) {
                     fc.stop();
-                    return std::shared_ptr<RasterBlock>();
+                    return std::unique_ptr<RasterBlock>();
                 }
 
                 auto& threadGeosContext = geos_context.local();
                 auto subgridIt = subdividedGrid.begin();
-                auto rasterBlock = std::make_shared<RasterBlock>();
+                auto rasterBlock = std::make_unique<RasterBlock>();
                 
                 while (subgridIt != subdividedGrid.end() && rasterBlock->_hits.empty()) {
                     auto subgrid = *subgridIt++;
@@ -132,8 +132,8 @@ namespace exactextract {
                 return rasterBlock;
             }) &
             //process batch
-            oneapi::tbb::make_filter<std::shared_ptr<RasterBlock>, std::shared_ptr<RasterBlock>>(oneapi::tbb::filter_mode::serial_out_of_order,
-            [&geos_context, this] (std::shared_ptr<RasterBlock> block)  {
+            oneapi::tbb::make_filter<std::unique_ptr<RasterBlock>, std::unique_ptr<RasterBlock>>(oneapi::tbb::filter_mode::serial_out_of_order,
+            [&geos_context, this] (std::unique_ptr<RasterBlock> block)  {
                 std::set<std::pair<RasterSource*, RasterSource*>> processed;
                 for (const auto &op : m_operations) {
                     auto key = std::make_pair(op->weights, op->values);
@@ -158,11 +158,11 @@ namespace exactextract {
                     }
                 }
 
-                return block;
+                return std::move(block);
             }) & 
             //process batch
-            oneapi::tbb::make_filter<std::shared_ptr<RasterBlock>, std::shared_ptr<RasterBlock>>(oneapi::tbb::filter_mode::parallel,
-            [&geos_context, &featureTree = m_feature_tree, this] (std::shared_ptr<RasterBlock> block) -> std::shared_ptr<RasterBlock> {
+            oneapi::tbb::make_filter<std::unique_ptr<RasterBlock>, std::unique_ptr<RasterBlock>>(oneapi::tbb::filter_mode::parallel,
+            [&geos_context, &featureTree = m_feature_tree, this] (std::unique_ptr<RasterBlock> block) -> std::unique_ptr<RasterBlock> {
                 auto& threadGeosContext = geos_context.local();
                 // bool store_values = StatsRegistry::requires_stored_values(ops);
                 bool store_values = true;
@@ -183,11 +183,11 @@ namespace exactextract {
                     }
                 }
 
-                return block;
+                return std::move(block);
             }) &
             //merge stat registry data
-            oneapi::tbb::make_filter<std::shared_ptr<RasterBlock>, void>(oneapi::tbb::filter_mode::serial_out_of_order,
-            [&totalStatsRegistry] (std::shared_ptr<RasterBlock> block) {
+            oneapi::tbb::make_filter<std::unique_ptr<RasterBlock>, void>(oneapi::tbb::filter_mode::serial_out_of_order,
+            [&totalStatsRegistry] (const std::unique_ptr<RasterBlock>& block) {
                 totalStatsRegistry.join(block->_reg);
             }));
 
