@@ -129,6 +129,11 @@ namespace exactextract {
 
                 subdividedGrid.erase(subdividedGrid.begin(), subgridIt);
 
+                return rasterBlock;
+            }) &
+            //process batch
+            oneapi::tbb::make_filter<std::shared_ptr<RasterBlock>, std::shared_ptr<RasterBlock>>(oneapi::tbb::filter_mode::serial_out_of_order,
+            [&geos_context, this] (std::shared_ptr<RasterBlock> block)  {
                 std::set<std::pair<RasterSource*, RasterSource*>> processed;
                 for (const auto &op : m_operations) {
                     auto key = std::make_pair(op->weights, op->values);
@@ -138,23 +143,23 @@ namespace exactextract {
                         processed.insert(key);
                     }
 
-                    if (!op->values->grid().extent().contains(rasterBlock->_grid.extent())) {
+                    if (!op->values->grid().extent().contains(block->_grid.extent())) {
                         continue;
                     }
 
-                    if (op->weighted() && !op->weights->grid().extent().contains(rasterBlock->_grid.extent())) {
+                    if (op->weighted() && !op->weights->grid().extent().contains(block->_grid.extent())) {
                         continue;
                     }
 
-                    auto values = rasterBlock->raster_values[op->values].get();
+                    auto values = block->raster_values[op->values].get();
                     if (values == nullptr) {
-                        rasterBlock->raster_values[op->values] = op->values->read_box(rasterBlock->_grid.extent().intersection(op->values->grid().extent()));
-                        values = rasterBlock->raster_values[op->values].get();
+                        block->raster_values[op->values] = op->values->read_box(block->_grid.extent().intersection(op->values->grid().extent()));
+                        values = block->raster_values[op->values].get();
                     }
                 }
 
-                return rasterBlock;
-            }) &
+                return block;
+            }) & 
             //process batch
             oneapi::tbb::make_filter<std::shared_ptr<RasterBlock>, std::shared_ptr<RasterBlock>>(oneapi::tbb::filter_mode::parallel,
             [&geos_context, &featureTree = m_feature_tree, this] (std::shared_ptr<RasterBlock> block) -> std::shared_ptr<RasterBlock> {
