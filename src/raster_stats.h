@@ -19,6 +19,7 @@
 #include <limits>
 #include <unordered_map>
 
+#include "raster.h"
 #include "raster_cell_intersection.h"
 #include "weighted_quantiles.h"
 #include "variance.h"
@@ -412,6 +413,30 @@ namespace exactextract {
 
         bool stores_values() const {
             return m_store_values;
+        }
+
+        void merge(const RasterStats<T>& other) {
+            this->m_sum_ci += other.m_sum_ci;
+            this->m_sum_xici += other.m_sum_xici;
+
+            this->m_sum_ciwi += other.m_sum_ciwi;
+            this->m_sum_xiciwi += other.m_sum_xiciwi;
+
+            this->m_min = std::min(this->m_min, other.m_min);
+            this->m_max = std::max(this->m_max, other.m_max);
+
+            // m_variance.process(val, coverage);
+            // m_weighted_variance.process(val, ciwi);
+
+            if (m_store_values) {
+                for (auto& val : m_freq) {
+                    auto& valFreqEntry = this->m_freq[val.first];
+                    valFreqEntry.m_sum_ci += val.second.m_sum_ci;
+                    valFreqEntry.m_sum_ciwi += val.second.m_sum_ciwi;
+                }
+
+                m_quantiles.reset();
+            }
         }
 
     private:

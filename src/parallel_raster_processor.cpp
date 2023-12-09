@@ -1,5 +1,7 @@
 
 
+#include <iterator>
+#include <ostream>
 #include <stdexcept>
 
 #include "feature_source.h"
@@ -17,6 +19,7 @@
 #include <set>
 
 #include <oneapi/tbb.h>
+#include <string>
 #include <unordered_map>
 
 namespace {
@@ -52,6 +55,8 @@ namespace exactextract {
     };
 
     void ParallelRasterProcessor::read_features() {
+        std::cout << "Reading features..." << std::endl;
+
         while (m_shp.next()) {
             const Feature& feature = m_shp.feature();
             MapFeature mf(feature);
@@ -61,6 +66,8 @@ namespace exactextract {
 
     void ParallelRasterProcessor::populate_index() {
         assert(m_feature_tree != nullptr);
+
+        std::cout << "Building feature index..." << std::endl;
 
         for (const auto &f : m_features) {
             // TODO compute envelope of dataset, and crop raster by that extent
@@ -77,13 +84,21 @@ namespace exactextract {
             m_output.add_operation(*op);
         }
 
+        std::cout << "Subdividing input raster extents..." << std::endl;
+
         bool store_values = StatsRegistry::requires_stored_values(m_operations);
         auto operationsGridExtent = common_grid(m_operations.begin(), m_operations.end());
         auto subdividedGrid = subdivide(operationsGridExtent, 4096);
+        StatsRegistry totalStatsRegistry;
 
         oneapi::tbb::enumerable_thread_specific<GEOSContextHandle_t> geos_context([] () -> GEOSContextHandle_t {
             return initGEOS_r(errorHandlerParallel, errorHandlerParallel);
         });
+
+        std::cout << "Processing inputs with ouputs as..." << std::endl;
+        std::cout << "Intersect and read operation: ." << std::endl;
+        std::cout << "Raster calculations: !" << std::endl;
+        std::cout << "Stats Registry merge: &" << std::endl;
 
         oneapi::tbb::parallel_pipeline(6,
             oneapi::tbb::make_filter<void, std::shared_ptr<RasterBlock>>(oneapi::tbb::filter_mode::serial_in_order,
@@ -168,26 +183,31 @@ namespace exactextract {
 
                 return block;
             }) &
-            //write out batch results
+            //merge stat registry data
             oneapi::tbb::make_filter<std::shared_ptr<RasterBlock>, void>(oneapi::tbb::filter_mode::serial_out_of_order,
-            [this] (std::shared_ptr<RasterBlock> block) {
+            [&totalStatsRegistry] (std::shared_ptr<RasterBlock> block) {
+                totalStatsRegistry.join(block->_reg);
+            }));
 
-                for (const auto& f_in : block->_hits) {
-                    auto f_out = m_output.create_feature();
-                    std::string fid = f_in->get_string(m_shp.id_field());
-                    f_out->set(m_shp.id_field(), fid);
-                    for (const auto& col: m_include_cols) {
-                        f_out->set(col, *f_in);
-                    }
-                    for (const auto& op : m_operations) {
-                        op->set_result(m_reg, fid, *f_out);
-                    }
-                    m_output.write(*f_out);
-                    m_reg.flush_feature(fid);
+            std::cout << "Writing out features..." << std::endl;
+
+            for (const auto& feature : m_features) {
+                auto f_out = m_output.create_feature();
+                std::string fid = feature.get_string(m_shp.id_field());
+                f_out->set(m_shp.id_field(), fid);
+                
+                for (const auto& col : m_include_cols) {
+                    f_out->set(col, feature);
+                }
+                
+                for (const auto& op : m_operations) {
+                    op->set_result(totalStatsRegistry, fid, *f_out);
                 }
 
-                std::cout << "Wrote " << block->_hits.size() << " features." << std::endl;
-            }));
-    }
+                m_output.write(*f_out);
+                totalStatsRegistry.flush_feature(fid);
+            }
 
+            std::cout << "Parallel raster done." << std::endl;
+    }
 }

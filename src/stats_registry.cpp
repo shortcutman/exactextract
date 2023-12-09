@@ -36,6 +36,25 @@ StatsRegistry::stats(const std::string& feature, const Operation& op, bool store
     return stats_for_feature[op.key()];
 }
 
+void StatsRegistry::join(StatsRegistry& source) {
+    for (auto& feature : source.m_feature_stats) {
+        auto statsFeatIt = this->m_feature_stats.find(feature.first);
+        if (statsFeatIt == this->m_feature_stats.end()) {
+            //move
+            auto& thisFeature = this->m_feature_stats[feature.first];
+            for (auto& op : feature.second) {
+                thisFeature[op.first] = std::move(op.second);
+            }
+        } else {
+            //merge
+            auto& thisFeature = this->m_feature_stats[feature.first];
+            for (auto& op : feature.second) {
+                thisFeature[op.first].merge(op.second);
+            }
+        }
+    }
+}
+
 bool
 StatsRegistry::contains(const std::string& feature, const Operation& op) const
 {

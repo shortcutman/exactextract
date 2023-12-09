@@ -45,6 +45,11 @@ namespace exactextract {
         bool contains(const std::string & feature, const Operation & op) const;
 
         /**
+         * @brief Takes source and merges its data into this StatRegistry.
+         */
+        void join(StatsRegistry& source);
+
+        /**
          * @brief Remove RasterStats objects associated with a given feature id
          */
         void flush_feature(const std::string &fid) {
