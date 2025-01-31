@@ -107,6 +107,10 @@ RasterParallelProcessor::process()
         return initGEOS_r(errorHandlerParallel, errorHandlerParallel);
     });
 
+    oneapi::tbb::enumerable_thread_specific<StatsRegistryPtr> statsreg([]() -> StatsRegistryPtr {
+        return std::make_shared<StatsRegistry>();
+    });
+
     // clang-format off
     oneapi::tbb::parallel_pipeline(m_tokens, 
         oneapi::tbb::make_filter<void, ZonalStatsCalc>(oneapi::tbb::filter_mode::serial_in_order,
@@ -154,12 +158,13 @@ RasterParallelProcessor::process()
             return context;
         }) &
         oneapi::tbb::make_filter<ZonalStatsCalc, std::tuple<Grid<bounded_extent>, StatsRegistryPtr>>(oneapi::tbb::filter_mode::parallel,
-        [&geos_context, this] (ZonalStatsCalc context) -> std::tuple<Grid<bounded_extent>, StatsRegistryPtr> {
+        [&geos_context, &statsreg, this] (ZonalStatsCalc context) -> std::tuple<Grid<bounded_extent>, StatsRegistryPtr> {
             if (context.subgrid.empty() || context.hits.empty() || !context.source || !context.values) {
                 return {context.subgrid, nullptr};
             }
 
-            auto block_registry = std::make_shared<StatsRegistry>();
+            // auto block_registry = std::make_shared<StatsRegistry>();
+            auto block_registry = statsreg.local();
             std::vector<Operation*> trimmed_ops;
 
             for (const auto& op : m_operations) {
@@ -195,7 +200,8 @@ RasterParallelProcessor::process()
                 }
             }
 
-            return {context.subgrid, block_registry};
+            // return {context.subgrid, block_registry};
+            return {context.subgrid, nullptr};
         }) &
         oneapi::tbb::make_filter<std::tuple<Grid<bounded_extent>, StatsRegistryPtr>, void>(oneapi::tbb::filter_mode::serial_out_of_order, 
         [&processed_subgrids, total_subgrids, this] (std::tuple<Grid<bounded_extent>, StatsRegistryPtr> registry) {
@@ -215,6 +221,10 @@ RasterParallelProcessor::process()
         })
     );
     // clang-format on
+
+    for (auto reg : statsreg) {
+        this->m_reg.merge(*reg);
+    }
 
     for (const auto& f_in : m_features) {
         write_result(f_in);
